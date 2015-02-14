@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 )
 
@@ -13,9 +14,21 @@ func main() {
 	// prog := `, [ > + < - ] > .`
 
 	// Multiply input
-	prog := `,>,< [ > [ >+ >+ << - ] >> [- << + >> ] <<< - ] >> .`
+	//prog := `,>,< [ > [ >+ >+ << - ] >> [- << + >> ] <<< - ] >> .`
 
-	NewProg([]byte(prog)).run(0)
+	// Print 65 and 25 concurrently
+	// Creates race where 25 may be printed before 65
+	prog := `
+	{ ++++++ [ > ++++++++++ < - ] > +++++ . }
+	>>>
+	{ ++ [ > ++++++++++ < - ] > +++++ . }
+	`
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	NewProg([]byte(prog)).run(0, &wg)
+	wg.Wait()
+
 	fmt.Println()
 }
 
@@ -33,7 +46,12 @@ func NewProg(c []byte) *program {
 	}
 }
 
-func (p program) run(heapPos int) {
+func (p program) run(heapPos int, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	var childWG sync.WaitGroup
+	defer childWG.Wait()
+
 	for i := 0; i < len(p.code); i++ {
 		switch ins := p.code[i]; ins {
 		case '>':
@@ -50,7 +68,8 @@ func (p program) run(heapPos int) {
 			end := i + findClosing(p.code[i:])
 			if atomic.LoadInt32(&p.heap[heapPos]) != 0 {
 				// enter loop
-				program{p.code[i+1:], p.heap}.run(heapPos)
+				childWG.Add(1) // TODO: remove this on loops
+				program{p.code[i+1:], p.heap}.run(heapPos, &childWG)
 			}
 			i = end // goto end
 		case ']':
@@ -58,6 +77,16 @@ func (p program) run(heapPos int) {
 				return
 			}
 			i = -1
+
+		case '{':
+			end := i + findClosing(p.code[i:])
+			childWG.Add(1)
+			go program{p.code[i+1:], p.heap}.run(heapPos, &childWG)
+
+			i = end // continue parrent thread
+		case '}':
+			return // kill thread
+
 		case '.':
 			fmt.Printf("%d", atomic.LoadInt32(&p.heap[heapPos]))
 		case ',':
@@ -78,9 +107,9 @@ func findClosing(prog []byte) int {
 	braces := 0
 	for i := 0; i < len(prog); i++ {
 		switch prog[i] {
-		case '[':
+		case '[', '{':
 			braces++
-		case ']':
+		case ']', '}':
 			braces--
 			if braces < 0 {
 				panic("invalid program: unbalanced braces")

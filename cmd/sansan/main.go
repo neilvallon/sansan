@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"sync"
 	"time"
 
 	"vallon.me/sansan"
@@ -22,10 +21,7 @@ func main() {
 
 	t1 := time.Now()
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	sansan.NewProg(prog).Run(0, &wg)
-	wg.Wait()
+	sansan.NewProg(prog).Run()
 
 	fmt.Println("\n\nProgram exited in:", time.Now().Sub(t1))
 }

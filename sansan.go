@@ -20,7 +20,15 @@ func NewProg(c []byte) *program {
 	}
 }
 
-func (p program) Run(heapPos int, wg *sync.WaitGroup) {
+func (p program) Run() {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
+	wg.Add(1)
+	p.run(0, &wg)
+}
+
+func (p program) run(heapPos int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	var childWG sync.WaitGroup
@@ -43,7 +51,7 @@ func (p program) Run(heapPos int, wg *sync.WaitGroup) {
 			if atomic.LoadInt32(&p.heap[heapPos]) != 0 {
 				// enter loop
 				childWG.Add(1) // TODO: remove this on loops
-				program{p.code[i+1:], p.heap}.Run(heapPos, &childWG)
+				program{p.code[i+1:], p.heap}.run(heapPos, &childWG)
 			}
 			i = end // goto end
 		case ']':
@@ -55,7 +63,7 @@ func (p program) Run(heapPos int, wg *sync.WaitGroup) {
 		case '{':
 			end := i + findClosing(p.code[i:])
 			childWG.Add(1)
-			go program{p.code[i+1:], p.heap}.Run(heapPos, &childWG)
+			go program{p.code[i+1:], p.heap}.run(heapPos, &childWG)
 
 			i = end // continue parrent thread
 		case '}':

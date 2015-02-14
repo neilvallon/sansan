@@ -1,35 +1,29 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
 func main() {
-	// Print 65
-	// prog := `++++++ [ > ++++++++++ < - ] > +++++ .`
+	flag.Parse()
 
-	// Echo Input
-	// prog := `, [ > + < - ] > .`
-
-	// Multiply input
-	//prog := `,>,< [ > [ >+ >+ << - ] >> [- << + >> ] <<< - ] >> .`
-
-	// Print 65 and 25 concurrently
-	// Creates race where 25 may be printed before 65
-	prog := `
-	{ ++++++ [ > ++++++++++ < - ] > +++++ . }
-	>>>
-	{ ++ [ > ++++++++++ < - ] > +++++ . }
-	`
+	prog, err := ioutil.ReadFile(flag.Arg(0))
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
 	t1 := time.Now()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	NewProg([]byte(prog)).run(0, &wg)
+	NewProg(prog).run(0, &wg)
 	wg.Wait()
 
 	fmt.Println("\n\nProgram exited in:", time.Now().Sub(t1))

@@ -28,7 +28,7 @@ func (p program) Run() {
 	p.run(0, &wg)
 }
 
-func (p program) run(heapPos int, wg *sync.WaitGroup) {
+func (p program) run(heapPos int, wg *sync.WaitGroup) int {
 	defer wg.Done()
 
 	var childWG sync.WaitGroup
@@ -51,12 +51,12 @@ func (p program) run(heapPos int, wg *sync.WaitGroup) {
 			if atomic.LoadInt32(&p.heap[heapPos]) != 0 {
 				// enter loop
 				childWG.Add(1) // TODO: remove this on loops
-				program{p.code[i+1:], p.heap}.run(heapPos, &childWG)
+				heapPos = program{p.code[i+1:], p.heap}.run(heapPos, &childWG)
 			}
 			i = end // goto end
 		case ']':
 			if atomic.LoadInt32(&p.heap[heapPos]) == 0 {
-				return
+				return heapPos
 			}
 			i = -1
 
@@ -67,10 +67,10 @@ func (p program) run(heapPos int, wg *sync.WaitGroup) {
 
 			i = end // continue parrent thread
 		case '}':
-			return // kill thread
+			return -1 // kill thread
 
 		case '.':
-			fmt.Printf("%d", atomic.LoadInt32(&p.heap[heapPos]))
+			fmt.Printf("%c", atomic.LoadInt32(&p.heap[heapPos]))
 		case ',':
 			var n int32
 			if _, err := fmt.Scanf("%d\n", &n); err != nil {
@@ -81,8 +81,8 @@ func (p program) run(heapPos int, wg *sync.WaitGroup) {
 		default:
 			panic("instruction not implemented")
 		}
-
 	}
+	return -1
 }
 
 func findClosing(prog []byte) int {

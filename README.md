@@ -20,7 +20,7 @@ A Concurrent Brainfuck Dialect.
 ## Usage
 
 #### Install
-	go get vallon.me/sansan
+	go get vallon.me/sansan/cmd/sansan
 
 #### Run
 	sansan filename.san

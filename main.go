@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 func main() {
@@ -24,12 +25,14 @@ func main() {
 	{ ++ [ > ++++++++++ < - ] > +++++ . }
 	`
 
+	t1 := time.Now()
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	NewProg([]byte(prog)).run(0, &wg)
 	wg.Wait()
 
-	fmt.Println()
+	fmt.Println("\n\nProgram exited in:", time.Now().Sub(t1))
 }
 
 const heapsize = 30000

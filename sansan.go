@@ -23,11 +23,11 @@ type heap struct {
 	pnt int
 }
 
-func newHeap() heap {
-	return heap{mem: make([]int32, heapsize)}
+func newHeap() *heap {
+	return &heap{mem: make([]int32, heapsize)}
 }
 
-func (h heap) run(p Program, wg *sync.WaitGroup) int {
+func (h *heap) run(p Program, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	var childWG sync.WaitGroup
@@ -50,23 +50,25 @@ func (h heap) run(p Program, wg *sync.WaitGroup) int {
 			if atomic.LoadInt32(&h.mem[h.pnt]) != 0 {
 				// enter loop
 				childWG.Add(1) // TODO: remove this on loops
-				h.pnt = h.run(p[i+1:], &childWG)
+				h.run(p[i+1:], &childWG)
 			}
 			i = end // goto end
 		case ']':
 			if atomic.LoadInt32(&h.mem[h.pnt]) == 0 {
-				return h.pnt
+				return
 			}
 			i = -1
 
 		case '{':
 			end := i + findClosing(p[i:])
+
+			newH := *h // copy heap mem and pointer
 			childWG.Add(1)
-			go h.run(p[i+1:], &childWG)
+			go newH.run(p[i+1:], &childWG)
 
 			i = end // continue parrent thread
 		case '}':
-			return -1 // kill thread
+			return // kill thread
 
 		case '.':
 			fmt.Printf("%c", atomic.LoadInt32(&h.mem[h.pnt]))
@@ -80,7 +82,6 @@ func (h heap) run(p Program, wg *sync.WaitGroup) int {
 		default:
 		}
 	}
-	return -1
 }
 
 func findClosing(prog []byte) int {

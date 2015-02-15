@@ -21,7 +21,7 @@ func main() {
 
 	t1 := time.Now()
 
-	sansan.NewProg(prog).Run()
+	sansan.Program(prog).Run()
 
 	fmt.Println("\n\nProgram exited in:", time.Now().Sub(t1))
 }

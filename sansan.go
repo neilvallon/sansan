@@ -6,79 +6,76 @@ import (
 	"sync/atomic"
 )
 
-const heapsize = 30000
+type Program []byte
 
-type program struct {
-	code []byte
-	heap []int32
-	hpnt int
-}
-
-func NewProg(c []byte) program {
-	return program{
-		c,
-		make([]int32, heapsize),
-		0,
-	}
-}
-
-func (p program) Run() {
+func (p Program) Run() {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
 	wg.Add(1)
-	p.run(&wg)
+	newHeap().run(p, &wg)
 }
 
-func (p program) run(wg *sync.WaitGroup) int {
+const heapsize = 30000
+
+type heap struct {
+	mem []int32
+	pnt int
+}
+
+func newHeap() heap {
+	return heap{mem: make([]int32, heapsize)}
+}
+
+func (h heap) run(p Program, wg *sync.WaitGroup) int {
 	defer wg.Done()
 
 	var childWG sync.WaitGroup
 	defer childWG.Wait()
 
-	for i := 0; i < len(p.code); i++ {
-		switch ins := p.code[i]; ins {
+	for i := 0; i < len(p); i++ {
+		switch ins := p[i]; ins {
 		case '>':
-			p.hpnt++
-			p.hpnt = (p.hpnt%heapsize + heapsize) % heapsize
+			h.pnt++
+			h.pnt = (h.pnt%heapsize + heapsize) % heapsize
 		case '<':
-			p.hpnt--
-			p.hpnt = (p.hpnt%heapsize + heapsize) % heapsize
+			h.pnt--
+			h.pnt = (h.pnt%heapsize + heapsize) % heapsize
 		case '+':
-			atomic.AddInt32(&p.heap[p.hpnt], 1)
+			atomic.AddInt32(&h.mem[h.pnt], 1)
 		case '-':
-			atomic.AddInt32(&p.heap[p.hpnt], -1)
+			atomic.AddInt32(&h.mem[h.pnt], -1)
 		case '[':
-			end := i + findClosing(p.code[i:])
-			if atomic.LoadInt32(&p.heap[p.hpnt]) != 0 {
+			end := i + findClosing(p[i:])
+			if atomic.LoadInt32(&h.mem[h.pnt]) != 0 {
 				// enter loop
 				childWG.Add(1) // TODO: remove this on loops
-				p.hpnt = program{p.code[i+1:], p.heap, p.hpnt}.run(&childWG)
+				h.pnt = h.run(p[i+1:], &childWG)
 			}
 			i = end // goto end
 		case ']':
-			if atomic.LoadInt32(&p.heap[p.hpnt]) == 0 {
-				return p.hpnt
+			if atomic.LoadInt32(&h.mem[h.pnt]) == 0 {
+				return h.pnt
 			}
 			i = -1
 
 		case '{':
-			end := i + findClosing(p.code[i:])
+			end := i + findClosing(p[i:])
 			childWG.Add(1)
-			go program{p.code[i+1:], p.heap, p.hpnt}.run(&childWG)
+			go h.run(p[i+1:], &childWG)
 
 			i = end // continue parrent thread
 		case '}':
 			return -1 // kill thread
 
 		case '.':
-			fmt.Printf("%c", atomic.LoadInt32(&p.heap[p.hpnt]))
+			fmt.Printf("%c", atomic.LoadInt32(&h.mem[h.pnt]))
 		case ',':
 			var n int32
 			if _, err := fmt.Scanf("%d\n", &n); err != nil {
 				panic(err)
 			}
-			atomic.SwapInt32(&p.heap[p.hpnt], n)
+			atomic.SwapInt32(&h.mem[h.pnt], n)
 		case ' ', '\t', '\n':
 		default:
 		}

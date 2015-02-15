@@ -11,12 +11,14 @@ const heapsize = 30000
 type program struct {
 	code []byte
 	heap []int32
+	hpnt int
 }
 
-func NewProg(c []byte) *program {
-	return &program{
+func NewProg(c []byte) program {
+	return program{
 		c,
 		make([]int32, heapsize),
+		0,
 	}
 }
 
@@ -25,10 +27,10 @@ func (p program) Run() {
 	defer wg.Wait()
 
 	wg.Add(1)
-	p.run(0, &wg)
+	p.run(&wg)
 }
 
-func (p program) run(heapPos int, wg *sync.WaitGroup) int {
+func (p program) run(wg *sync.WaitGroup) int {
 	defer wg.Done()
 
 	var childWG sync.WaitGroup
@@ -37,49 +39,48 @@ func (p program) run(heapPos int, wg *sync.WaitGroup) int {
 	for i := 0; i < len(p.code); i++ {
 		switch ins := p.code[i]; ins {
 		case '>':
-			heapPos++
-			heapPos = (heapPos%heapsize + heapsize) % heapsize
+			p.hpnt++
+			p.hpnt = (p.hpnt%heapsize + heapsize) % heapsize
 		case '<':
-			heapPos--
-			heapPos = (heapPos%heapsize + heapsize) % heapsize
+			p.hpnt--
+			p.hpnt = (p.hpnt%heapsize + heapsize) % heapsize
 		case '+':
-			atomic.AddInt32(&p.heap[heapPos], 1)
+			atomic.AddInt32(&p.heap[p.hpnt], 1)
 		case '-':
-			atomic.AddInt32(&p.heap[heapPos], -1)
+			atomic.AddInt32(&p.heap[p.hpnt], -1)
 		case '[':
 			end := i + findClosing(p.code[i:])
-			if atomic.LoadInt32(&p.heap[heapPos]) != 0 {
+			if atomic.LoadInt32(&p.heap[p.hpnt]) != 0 {
 				// enter loop
 				childWG.Add(1) // TODO: remove this on loops
-				heapPos = program{p.code[i+1:], p.heap}.run(heapPos, &childWG)
+				p.hpnt = program{p.code[i+1:], p.heap, p.hpnt}.run(&childWG)
 			}
 			i = end // goto end
 		case ']':
-			if atomic.LoadInt32(&p.heap[heapPos]) == 0 {
-				return heapPos
+			if atomic.LoadInt32(&p.heap[p.hpnt]) == 0 {
+				return p.hpnt
 			}
 			i = -1
 
 		case '{':
 			end := i + findClosing(p.code[i:])
 			childWG.Add(1)
-			go program{p.code[i+1:], p.heap}.run(heapPos, &childWG)
+			go program{p.code[i+1:], p.heap, p.hpnt}.run(&childWG)
 
 			i = end // continue parrent thread
 		case '}':
 			return -1 // kill thread
 
 		case '.':
-			fmt.Printf("%c", atomic.LoadInt32(&p.heap[heapPos]))
+			fmt.Printf("%c", atomic.LoadInt32(&p.heap[p.hpnt]))
 		case ',':
 			var n int32
 			if _, err := fmt.Scanf("%d\n", &n); err != nil {
 				panic(err)
 			}
-			atomic.SwapInt32(&p.heap[heapPos], n)
+			atomic.SwapInt32(&p.heap[p.hpnt], n)
 		case ' ', '\t', '\n':
 		default:
-			panic("instruction not implemented")
 		}
 	}
 	return -1

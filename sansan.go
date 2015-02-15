@@ -9,11 +9,11 @@ import (
 type Program []byte
 
 func (p Program) Run() {
-	var wg sync.WaitGroup
-	defer wg.Wait()
+	h := newHeap()
+	defer h.wg.Wait()
 
-	wg.Add(1)
-	newHeap().run(p, &wg)
+	h.wg.Add(1)
+	h.run(p)
 }
 
 const heapsize = 30000
@@ -21,17 +21,18 @@ const heapsize = 30000
 type heap struct {
 	mem []int32
 	pnt int
+	wg  *sync.WaitGroup
 }
 
 func newHeap() *heap {
-	return &heap{mem: make([]int32, heapsize)}
+	return &heap{
+		mem: make([]int32, heapsize),
+		wg:  &sync.WaitGroup{},
+	}
 }
 
-func (h *heap) run(p Program, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	var childWG sync.WaitGroup
-	defer childWG.Wait()
+func (h *heap) run(p Program) {
+	defer h.wg.Done()
 
 	for i := 0; i < len(p); i++ {
 		switch ins := p[i]; ins {
@@ -49,8 +50,8 @@ func (h *heap) run(p Program, wg *sync.WaitGroup) {
 			end := i + findClosing(p[i:])
 			if atomic.LoadInt32(&h.mem[h.pnt]) != 0 {
 				// enter loop
-				childWG.Add(1) // TODO: remove this on loops
-				h.run(p[i+1:], &childWG)
+				h.wg.Add(1) // TODO: remove this on loops
+				h.run(p[i+1:])
 			}
 			i = end // goto end
 		case ']':
@@ -63,8 +64,8 @@ func (h *heap) run(p Program, wg *sync.WaitGroup) {
 			end := i + findClosing(p[i:])
 
 			newH := *h // copy heap mem and pointer
-			childWG.Add(1)
-			go newH.run(p[i+1:], &childWG)
+			h.wg.Add(1)
+			go newH.run(p[i+1:])
 
 			i = end // continue parrent thread
 		case '}':

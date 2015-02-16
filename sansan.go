@@ -23,7 +23,7 @@ func (p Program) Clean() Program {
 
 	for _, c := range p {
 		switch c {
-		case '>', '<', '+', '-', '[', ']', '{', '}', '.', ',':
+		case '>', '<', '+', '-', '[', ']', '{', '}', '.', ',', '!':
 			np = append(np, c)
 		}
 	}
@@ -34,9 +34,10 @@ func (p Program) Clean() Program {
 const heapsize = 30000
 
 type heap struct {
-	mem []int32
-	pnt int
-	wg  *sync.WaitGroup
+	mem    []int32
+	pnt    int
+	atomic bool
+	wg     *sync.WaitGroup
 }
 
 func newHeap() *heap {
@@ -56,19 +57,27 @@ func (h *heap) run(p Program) {
 			h.pnt--
 			h.pnt = (h.pnt%heapsize + heapsize) % heapsize
 		case '+':
-			atomic.AddInt32(&h.mem[h.pnt], 1)
+			if h.atomic {
+				atomic.AddInt32(&h.mem[h.pnt], 1)
+			} else {
+				h.mem[h.pnt]++
+			}
 		case '-':
-			atomic.AddInt32(&h.mem[h.pnt], -1)
+			if h.atomic {
+				atomic.AddInt32(&h.mem[h.pnt], -1)
+			} else {
+				h.mem[h.pnt]--
+			}
 		case '[':
 			end := i + findClosing(p[i:])
 
-			if atomic.LoadInt32(&h.mem[h.pnt]) != 0 {
+			if (h.atomic && atomic.LoadInt32(&h.mem[h.pnt]) != 0) || h.mem[h.pnt] != 0 {
 				h.run(p[i+1 : end+1]) // enter loop
 			}
 
 			i = end // goto end
 		case ']':
-			if atomic.LoadInt32(&h.mem[h.pnt]) == 0 {
+			if (h.atomic && atomic.LoadInt32(&h.mem[h.pnt]) == 0) || h.mem[h.pnt] == 0 {
 				return
 			}
 			i = -1
@@ -82,15 +91,30 @@ func (h *heap) run(p Program) {
 			i = end // continue parrent thread
 		case '}':
 			return // kill thread
+		case '!':
+			// toggle atomic operations on current thread
+			h.atomic = h.atomic != true
 
 		case '.':
-			fmt.Printf("%c", atomic.LoadInt32(&h.mem[h.pnt]))
+			var v int32
+			if h.atomic {
+				v = atomic.LoadInt32(&h.mem[h.pnt])
+			} else {
+				v = h.mem[h.pnt]
+			}
+
+			fmt.Printf("%c", v)
 		case ',':
 			var n int32
 			if _, err := fmt.Scanf("%d\n", &n); err != nil {
 				panic(err)
 			}
-			atomic.SwapInt32(&h.mem[h.pnt], n)
+
+			if h.atomic {
+				atomic.SwapInt32(&h.mem[h.pnt], n)
+			} else {
+				h.mem[h.pnt] = n
+			}
 		}
 	}
 }

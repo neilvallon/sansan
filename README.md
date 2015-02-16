@@ -14,6 +14,7 @@ A Concurrent Brainfuck Dialect.
 | ]  | Continue loop untill current cell is zero |
 | {  | Start new thread                          |
 | }  | Stops current thread                      |
+| !  | Toggle atomic operations. Default: *off*  |
 | .  | Print value of current cell               |
 | ,  | Read integer into current cell            |
 

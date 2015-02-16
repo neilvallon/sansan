@@ -12,7 +12,23 @@ func (p Program) Run() {
 	h := newHeap()
 	defer h.wg.Wait()
 
-	h.run(p)
+	h.run(p.Clean())
+}
+
+// Clean returns a new program with invalid instructions and
+// whitespace removed.
+func (p Program) Clean() Program {
+	// allocate some space for cleaned program
+	np := make(Program, 0, len(p)/2)
+
+	for _, c := range p {
+		switch c {
+		case '>', '<', '+', '-', '[', ']', '{', '}', '.', ',':
+			np = append(np, c)
+		}
+	}
+
+	return np
 }
 
 const heapsize = 30000
@@ -75,8 +91,6 @@ func (h *heap) run(p Program) {
 				panic(err)
 			}
 			atomic.SwapInt32(&h.mem[h.pnt], n)
-		case ' ', '\t', '\n':
-		default:
 		}
 	}
 }

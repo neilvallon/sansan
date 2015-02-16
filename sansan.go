@@ -48,11 +48,13 @@ func (h *heap) run(p Program) {
 			atomic.AddInt32(&h.mem[h.pnt], -1)
 		case '[':
 			end := i + findClosing(p[i:])
+
 			if atomic.LoadInt32(&h.mem[h.pnt]) != 0 {
 				// enter loop
 				h.wg.Add(1) // TODO: remove this on loops
-				h.run(p[i+1:])
+				h.run(p[i+1 : end+1])
 			}
+
 			i = end // goto end
 		case ']':
 			if atomic.LoadInt32(&h.mem[h.pnt]) == 0 {
@@ -65,7 +67,7 @@ func (h *heap) run(p Program) {
 
 			newH := *h // copy heap mem and pointer
 			h.wg.Add(1)
-			go newH.run(p[i+1:])
+			go newH.run(p[i+1 : end+1])
 
 			i = end // continue parrent thread
 		case '}':

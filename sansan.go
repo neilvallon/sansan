@@ -71,13 +71,13 @@ func (h *heap) run(p Program) {
 		case '[':
 			end := i + findClosing(p[i:])
 
-			if (h.atomic && atomic.LoadInt32(&h.mem[h.pnt]) != 0) || h.mem[h.pnt] != 0 {
+			if (h.atomic && atomic.LoadInt32(&h.mem[h.pnt]) != 0) || (!h.atomic && h.mem[h.pnt] != 0) {
 				h.run(p[i+1 : end+1]) // enter loop
 			}
 
 			i = end // goto end
 		case ']':
-			if (h.atomic && atomic.LoadInt32(&h.mem[h.pnt]) == 0) || h.mem[h.pnt] == 0 {
+			if (h.atomic && atomic.LoadInt32(&h.mem[h.pnt]) == 0) || (!h.atomic && h.mem[h.pnt] == 0) {
 				return
 			}
 			i = -1

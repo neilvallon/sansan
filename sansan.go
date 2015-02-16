@@ -12,7 +12,6 @@ func (p Program) Run() {
 	h := newHeap()
 	defer h.wg.Wait()
 
-	h.wg.Add(1)
 	h.run(p)
 }
 
@@ -32,8 +31,6 @@ func newHeap() *heap {
 }
 
 func (h *heap) run(p Program) {
-	defer h.wg.Done()
-
 	for i := 0; i < len(p); i++ {
 		switch ins := p[i]; ins {
 		case '>':
@@ -50,9 +47,7 @@ func (h *heap) run(p Program) {
 			end := i + findClosing(p[i:])
 
 			if atomic.LoadInt32(&h.mem[h.pnt]) != 0 {
-				// enter loop
-				h.wg.Add(1) // TODO: remove this on loops
-				h.run(p[i+1 : end+1])
+				h.run(p[i+1 : end+1]) // enter loop
 			}
 
 			i = end // goto end
@@ -65,9 +60,8 @@ func (h *heap) run(p Program) {
 		case '{':
 			end := i + findClosing(p[i:])
 
-			newH := *h // copy heap mem and pointer
 			h.wg.Add(1)
-			go newH.run(p[i+1 : end+1])
+			go h.runThread(p[i+1 : end+1])
 
 			i = end // continue parrent thread
 		case '}':
@@ -85,6 +79,13 @@ func (h *heap) run(p Program) {
 		default:
 		}
 	}
+}
+
+// runThread runs the given program with a local copy of the
+// heap pointer and decrements waitgroup when finished.
+func (h heap) runThread(p Program) {
+	defer h.wg.Done()
+	h.run(p)
 }
 
 func findClosing(prog []byte) int {

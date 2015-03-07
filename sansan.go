@@ -2,6 +2,8 @@ package sansan
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"sync"
 	"sync/atomic"
 )
@@ -13,12 +15,18 @@ type heap []int32
 type Machine struct {
 	mem heap
 	wg  *sync.WaitGroup
+
+	stdin  io.Reader
+	stdout io.Writer
 }
 
 func newMachine() Machine {
 	return Machine{
 		mem: make(heap, heapsize),
 		wg:  &sync.WaitGroup{},
+
+		stdin:  os.Stdin,
+		stdout: os.Stdout,
 	}
 }
 
@@ -83,10 +91,10 @@ func (m Machine) run(p Program, s *state) {
 				v = m.mem[s.pnt]
 			}
 
-			fmt.Printf("%c", v)
+			fmt.Fprintf(m.stdout, "%c", v)
 		case ',':
 			var n int32
-			if _, err := fmt.Scanf("%d\n", &n); err != nil {
+			if _, err := fmt.Fscanf(m.stdin, "%d\n", &n); err != nil {
 				panic(err)
 			}
 
@@ -104,6 +112,14 @@ func (m Machine) run(p Program, s *state) {
 func (m Machine) runThread(p Program, s state) {
 	defer m.wg.Done()
 	m.run(p, &s)
+}
+
+func (m *Machine) SetInput(r io.Reader) {
+	m.stdin = r
+}
+
+func (m *Machine) SetOutput(w io.Writer) {
+	m.stdout = w
 }
 
 func findClosing(prog []byte) int {

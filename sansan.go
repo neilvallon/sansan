@@ -35,28 +35,19 @@ type state struct {
 	atomic bool
 }
 
-func (m Machine) run(p Program, s *state) {
+func (m Machine) run(p program, s *state) {
 	for i := 0; i < len(p); i++ {
-		switch ins := p[i]; ins {
-		case '>':
-			s.pnt++
+		switch ins := p[i]; ins.Action {
+		case Move:
+			s.pnt += ins.Val
 			s.pnt = (s.pnt%heapsize + heapsize) % heapsize
-		case '<':
-			s.pnt--
-			s.pnt = (s.pnt%heapsize + heapsize) % heapsize
-		case '+':
+		case Modify:
 			if s.atomic {
-				atomic.AddInt32(&m.mem[s.pnt], 1)
+				atomic.AddInt32(&m.mem[s.pnt], int32(ins.Val))
 			} else {
-				m.mem[s.pnt]++
+				m.mem[s.pnt] += int32(ins.Val)
 			}
-		case '-':
-			if s.atomic {
-				atomic.AddInt32(&m.mem[s.pnt], -1)
-			} else {
-				m.mem[s.pnt]--
-			}
-		case '[':
+		case LStart:
 			end := i + findClosing(p[i:])
 
 			if (s.atomic && atomic.LoadInt32(&m.mem[s.pnt]) != 0) || (!s.atomic && m.mem[s.pnt] != 0) {
@@ -64,26 +55,26 @@ func (m Machine) run(p Program, s *state) {
 			}
 
 			i = end // goto end
-		case ']':
+		case LEnd:
 			if (s.atomic && atomic.LoadInt32(&m.mem[s.pnt]) == 0) || (!s.atomic && m.mem[s.pnt] == 0) {
 				return
 			}
 			i = -1
 
-		case '{':
+		case TStart:
 			end := i + findClosing(p[i:])
 
 			m.wg.Add(1)
 			go m.runThread(p[i+1:end+1], *s)
 
 			i = end // continue parrent thread
-		case '}':
+		case TEnd:
 			return // kill thread
-		case '!':
+		case Toggle:
 			// toggle atomic operations on current thread
 			s.atomic = s.atomic != true
 
-		case '.':
+		case Print:
 			var v int32
 			if s.atomic {
 				v = atomic.LoadInt32(&m.mem[s.pnt])
@@ -92,7 +83,7 @@ func (m Machine) run(p Program, s *state) {
 			}
 
 			fmt.Fprintf(m.stdout, "%c", v)
-		case ',':
+		case Read:
 			var n int32
 			if _, err := fmt.Fscanf(m.stdin, "%d\n", &n); err != nil {
 				panic(err)
@@ -109,7 +100,7 @@ func (m Machine) run(p Program, s *state) {
 
 // runThread runs the given program with a local copy of the
 // heap pointer and decrements waitgroup when finished.
-func (m Machine) runThread(p Program, s state) {
+func (m Machine) runThread(p program, s state) {
 	defer m.wg.Done()
 	m.run(p, &s)
 }
@@ -122,13 +113,13 @@ func (m *Machine) SetOutput(w io.Writer) {
 	m.stdout = w
 }
 
-func findClosing(prog []byte) int {
+func findClosing(prog program) int {
 	braces := 0
 	for i := 0; i < len(prog); i++ {
-		switch prog[i] {
-		case '[', '{':
+		switch prog[i].Action {
+		case LStart, TStart:
 			braces++
-		case ']', '}':
+		case LEnd, TEnd:
 			braces--
 			if braces < 0 {
 				panic("invalid program: unbalanced braces")

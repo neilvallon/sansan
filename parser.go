@@ -13,14 +13,11 @@ func Program(p []byte) program {
 	return prog
 }
 
-func Parse(p []byte) (program, error) {
-	// allocate some space for cleaned program
-	b := make([]byte, 0, len(p)/2)
-
-	for _, c := range p {
-		switch c {
-		case '>', '<', '+', '-', '[', ']', '{', '}', '.', ',', '!':
-			b = append(b, c)
+func Parse(b []byte, ftr ...filter) (program, error) {
+	for _, f := range ftr {
+		var err error
+		if b, err = f(b); err != nil {
+			return nil, err
 		}
 	}
 
@@ -74,6 +71,9 @@ func parse(p []byte) (program, error) {
 			i.Action, p = TEnd, p[1:]
 		case '!':
 			i.Action, p = Toggle, p[1:]
+		default:
+			p = p[1:]
+			continue // clean
 		}
 		prog = append(prog, i)
 	}

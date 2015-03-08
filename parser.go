@@ -2,13 +2,6 @@ package sansan
 
 type program []instruction
 
-func (p program) Run() {
-	m := newMachine()
-	defer m.wg.Wait()
-
-	m.run(p, new(state))
-}
-
 func Program(p []byte) program {
 	// allocate some space for cleaned program
 	b := make([]byte, 0, len(p)/2)

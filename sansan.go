@@ -20,7 +20,7 @@ type Machine struct {
 	stdout io.Writer
 }
 
-func newMachine() Machine {
+func NewMachine() Machine {
 	return Machine{
 		mem: make(heap, heapsize),
 		wg:  &sync.WaitGroup{},
@@ -28,6 +28,11 @@ func newMachine() Machine {
 		stdin:  os.Stdin,
 		stdout: os.Stdout,
 	}
+}
+
+func (m Machine) Run(p program) {
+	defer m.wg.Wait()
+	m.run(p, new(state))
 }
 
 type state struct {

@@ -74,6 +74,8 @@ func parse(p []byte) program {
 		prog = append(prog, i)
 	}
 
+	findLoopEnds(prog)
+
 	return prog
 }
 
@@ -107,4 +109,32 @@ func parseMove(p []byte) (i instruction, rest []byte) {
 		}
 	}
 	return i, rest
+}
+
+func findLoopEnds(p program) {
+	for i := range p {
+		switch p[i].Action {
+		case LStart, TStart:
+			p[i].Val = int16(findClosing(p[i:]))
+		}
+	}
+}
+
+func findClosing(prog program) int {
+	braces := 0
+	for i := 0; i < len(prog); i++ {
+		switch prog[i].Action {
+		case LStart, TStart:
+			braces++
+		case LEnd, TEnd:
+			braces--
+			if braces < 0 {
+				panic("invalid program: unbalanced braces")
+			}
+			if braces == 0 {
+				return i
+			}
+		}
+	}
+	panic("invalid program: could not find closing ']'")
 }

@@ -48,7 +48,7 @@ func (m Machine) run(p program, s *state) {
 				m.mem[s.pnt] += int32(ins.Val)
 			}
 		case LStart:
-			end := i + findClosing(p[i:])
+			end := i + int(ins.Val)
 
 			if (s.atomic && atomic.LoadInt32(&m.mem[s.pnt]) != 0) || (!s.atomic && m.mem[s.pnt] != 0) {
 				m.run(p[i+1:end+1], s) // enter loop
@@ -62,7 +62,7 @@ func (m Machine) run(p program, s *state) {
 			i = -1
 
 		case TStart:
-			end := i + findClosing(p[i:])
+			end := i + int(ins.Val)
 
 			m.wg.Add(1)
 			go m.runThread(p[i+1:end+1], *s)
@@ -111,23 +111,4 @@ func (m *Machine) SetInput(r io.Reader) {
 
 func (m *Machine) SetOutput(w io.Writer) {
 	m.stdout = w
-}
-
-func findClosing(prog program) int {
-	braces := 0
-	for i := 0; i < len(prog); i++ {
-		switch prog[i].Action {
-		case LStart, TStart:
-			braces++
-		case LEnd, TEnd:
-			braces--
-			if braces < 0 {
-				panic("invalid program: unbalanced braces")
-			}
-			if braces == 0 {
-				return i
-			}
-		}
-	}
-	panic("invalid program: could not find closing ']'")
 }

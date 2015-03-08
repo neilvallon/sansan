@@ -1,8 +1,19 @@
 package sansan
 
+import "errors"
+
 type program []instruction
 
 func Program(p []byte) program {
+	prog, err := Parse(p)
+	if err != nil {
+		panic(err)
+	}
+
+	return prog
+}
+
+func Parse(p []byte) (program, error) {
 	// allocate some space for cleaned program
 	b := make([]byte, 0, len(p)/2)
 
@@ -39,7 +50,7 @@ type instruction struct {
 	Val    int16
 }
 
-func parse(p []byte) program {
+func parse(p []byte) (program, error) {
 	prog := make(program, 0, len(p)/2)
 
 	for len(p) != 0 {
@@ -67,9 +78,12 @@ func parse(p []byte) program {
 		prog = append(prog, i)
 	}
 
-	findLoopEnds(prog)
+	err := findLoopEnds(prog)
+	if err != nil {
+		return nil, err
+	}
 
-	return prog
+	return prog, nil
 }
 
 func parseModify(p []byte) (i instruction, rest []byte) {
@@ -104,16 +118,23 @@ func parseMove(p []byte) (i instruction, rest []byte) {
 	return i, rest
 }
 
-func findLoopEnds(p program) {
+func findLoopEnds(p program) error {
 	for i := range p {
 		switch p[i].Action {
 		case LStart, TStart:
-			p[i].Val = int16(findClosing(p[i:]))
+			end, err := findClosing(p[i:])
+			if err != nil {
+				return err
+			}
+
+			p[i].Val = int16(end)
 		}
 	}
+
+	return nil
 }
 
-func findClosing(prog program) int {
+func findClosing(prog program) (int, error) {
 	braces := 0
 	for i := 0; i < len(prog); i++ {
 		switch prog[i].Action {
@@ -122,12 +143,13 @@ func findClosing(prog program) int {
 		case LEnd, TEnd:
 			braces--
 			if braces < 0 {
-				panic("invalid program: unbalanced braces")
+				return 0, errors.New("sansan: unbalanced braces")
 			}
 			if braces == 0 {
-				return i
+				return i, nil
 			}
 		}
 	}
-	panic("invalid program: could not find closing ']'")
+
+	return 0, errors.New("sansan: reached end of input inside loop or thread")
 }

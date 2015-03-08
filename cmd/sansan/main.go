@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"time"
 
 	"vallon.me/sansan"
@@ -23,5 +24,5 @@ func main() {
 
 	sansan.NewMachine().Run(sansan.Program(prog))
 
-	fmt.Println("\n\nProgram exited in:", time.Now().Sub(t1))
+	fmt.Fprintln(os.Stderr, "\nProgram exited in:", time.Now().Sub(t1))
 }
